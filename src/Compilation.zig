@@ -2998,6 +2998,26 @@ fn updateStage1Module(comp: *Compilation, main_progress_node: *std.Progress.Node
                 break :hit;
 
             log.debug("stage1 {} digest={} match - skipping invocation", .{ mod.root_pkg.root_src_path, digest });
+
+            if (comp.verbose_llvm_cpu_features) {
+                std.debug.print("Not printing verbose_llvm_cpu_features because compiler is not running due to caching.\n", .{});
+            }
+            if (comp.verbose_llvm_ir) {
+                std.debug.print("Not printing verbose_llvm_ir because compiler is not running due to caching.\n", .{});
+            }
+            if (comp.verbose_tokenize) {
+                std.debug.print("Not printing verbose_tokenize because compiler is not running due to caching.\n", .{});
+            }
+            if (comp.verbose_ir) {
+                std.debug.print("Not printing verbose_ir because compiler is not running due to caching.\n", .{});
+            }
+            if (comp.verbose_ast) {
+                std.debug.print("Not printing verbose_ast because compiler is not running due to caching.\n", .{});
+            }
+            if (comp.verbose_cimport) {
+                std.debug.print("Not printing verbose_cimport because compiler is not running due to caching.\n", .{});
+            }
+
             var flags_bytes: [1]u8 = undefined;
             _ = std.fmt.hexToBytes(&flags_bytes, prev_digest[digest.len..]) catch {
                 log.warn("bad cache stage1 digest: '{s}'", .{prev_digest});
