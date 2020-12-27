@@ -450,7 +450,7 @@ pub const Value = extern union {
             .error_set => {
                 const payload = self.cast(Payload.ErrorSet).?;
                 const new = try allocator.create(Type.Payload.ErrorSet);
-                new.* = .{ .decl = payload.decl, .inferred = payload.inferred };
+                new.* = .{ .decl = payload.decl, .infer_fn = payload.infer_fn };
                 return Type.initPayload(&new.base);
             },
 
@@ -1870,7 +1870,7 @@ pub const Value = extern union {
             // TODO revisit this when we have the concept of the error tag type
             fields: std.StringHashMapUnmanaged(u16),
             decl: *Module.Decl,
-            inferred: bool = false,
+            infer_fn: ?*Module.Decl = null,
         };
 
         pub const Error = struct {

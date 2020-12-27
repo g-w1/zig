@@ -1072,7 +1072,7 @@ fn astGenAndAnalyzeDecl(self: *Module, decl: *Decl) !bool {
                 // turning it from T -> !T
                 const e_set = try astgen.addZIRInst(self, &fn_type_scope.base, fn_src, zir.Inst.ErrorSet, .{
                     .fields = &[_][]const u8{},
-                }, .{ .inferred = true });
+                }, .{ .infer_fn = decl });
                 const inferred_type_inst = try astgen.addZIRBinOp(self, &fn_type_scope.base, fn_src, .error_union_type, e_set, return_type_inst);
                 break :blk try astgen.addZIRInst(self, &fn_type_scope.base, fn_src, zir.Inst.FnType, .{
                     .return_type = inferred_type_inst,

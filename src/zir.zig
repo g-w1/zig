@@ -1011,7 +1011,7 @@ pub const Inst = struct {
             fields: [][]const u8,
         },
         kw_args: struct {
-            inferred: bool = false,
+            infer_fn: ?*IrModule.Decl = null,
         },
     };
 

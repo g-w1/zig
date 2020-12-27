@@ -3111,7 +3111,7 @@ pub const Type = extern union {
             base: Payload = .{ .tag = .error_set },
 
             decl: *Module.Decl,
-            inferred: bool = false,
+            infer_fn: ?*Module.Decl = null,
         };
 
         pub const ErrorSetSingle = struct {
