@@ -1010,7 +1010,9 @@ pub const Inst = struct {
         positionals: struct {
             fields: [][]const u8,
         },
-        kw_args: struct {},
+        kw_args: struct {
+            inferred: bool = false,
+        },
     };
 
     pub const Slice = struct {

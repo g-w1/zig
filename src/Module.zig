@@ -1051,17 +1051,34 @@ fn astGenAndAnalyzeDecl(self: *Module, decl: *Decl) !bool {
                     .{},
                 );
             }
+            var is_inferred = false;
             const return_type_expr = switch (fn_proto.return_type) {
                 .Explicit => |node| node,
-                .InferErrorSet => |node| return self.failNode(&fn_type_scope.base, node, "TODO implement inferred error sets", .{}),
+                .InferErrorSet => |node| blk: {
+                    is_inferred = true;
+                    break :blk node;
+                },
                 .Invalid => |tok| return self.failTok(&fn_type_scope.base, tok, "unable to parse return type", .{}),
             };
 
             const return_type_inst = try astgen.expr(self, &fn_type_scope.base, type_type_rl, return_type_expr);
-            const fn_type_inst = try astgen.addZIRInst(self, &fn_type_scope.base, fn_src, zir.Inst.FnType, .{
-                .return_type = return_type_inst,
-                .param_types = param_types,
-            }, .{});
+
+            const fn_type_inst = if (!is_inferred)
+                try astgen.addZIRInst(self, &fn_type_scope.base, fn_src, zir.Inst.FnType, .{
+                    .return_type = return_type_inst,
+                    .param_types = param_types,
+                }, .{})
+            else blk: {
+                // turning it from T -> !T
+                const e_set = try astgen.addZIRInst(self, &fn_type_scope.base, fn_src, zir.Inst.ErrorSet, .{
+                    .fields = &[_][]const u8{},
+                }, .{ .inferred = true });
+                const inferred_type_inst = try astgen.addZIRBinOp(self, &fn_type_scope.base, fn_src, .error_union_type, e_set, return_type_inst);
+                break :blk try astgen.addZIRInst(self, &fn_type_scope.base, fn_src, zir.Inst.FnType, .{
+                    .return_type = inferred_type_inst,
+                    .param_types = param_types,
+                }, .{});
+            };
 
             if (self.comp.verbose_ir) {
                 zir.dumpZir(self.gpa, "fn_type", decl.name, fn_type_scope.instructions.items) catch {};

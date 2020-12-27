@@ -849,6 +849,7 @@ fn analyzeInstErrorSet(mod: *Module, scope: *Scope, inst: *zir.Inst.ErrorSet) In
     payload.* = .{
         .fields = .{},
         .decl = undefined, // populated below
+        .inferred = inst.kw_args.inferred,
     };
     try payload.fields.ensureCapacity(&new_decl_arena.allocator, @intCast(u32, inst.positionals.fields.len));
 
