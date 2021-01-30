@@ -1653,6 +1653,8 @@ pub fn performAllTheWork(self: *Compilation) error{ TimerUnsupported, OutOfMemor
                     .error_msg = null,
                     .decl = decl,
                     .fwd_decl = fwd_decl.toManaged(module.gpa),
+                    // we don't want to emit optionals and error unions to headers since they have no ABI
+                    .typedefs = c_codegen.TypedefMap.init(std.testing.failing_allocator),
                 };
                 defer dg.fwd_decl.deinit();
 

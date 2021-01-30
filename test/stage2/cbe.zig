@@ -235,16 +235,28 @@ pub fn addCases(ctx: *TestContext) !void {
         var case = ctx.exeFromCompiledC("optionals", .{});
 
         // Simple while loop
-        //case.addCompareOutput(
-        //    \\export fn main() c_int {
-        //    \\    var count: c_int = 0;
-        //    \\    var opt_ptr: ?*c_int = &count;
-        //    \\    while (opt_ptr) |_| : (count += 1) {
-        //    \\        if (count == 4) opt_ptr = null;
-        //    \\    }
-        //    \\    return count - 5;
-        //    \\}
-        //, "");
+        case.addCompareOutput(
+            \\export fn main() c_int {
+            \\    var count: c_int = 0;
+            \\    var opt_ptr: ?*c_int = &count;
+            \\    while (opt_ptr) |_| : (count += 1) {
+            \\        if (count == 4) opt_ptr = null;
+            \\    }
+            \\    return count - 5;
+            \\}
+        , "");
+
+        // Same with non pointer optionals
+        case.addCompareOutput(
+            \\export fn main() c_int {
+            \\    var count: c_int = 0;
+            \\    var opt_ptr: ?c_int = count;
+            \\    while (opt_ptr) |_| : (count += 1) {
+            \\        if (count == 4) opt_ptr = null;
+            \\    }
+            \\    return count - 5;
+            \\}
+        , "");
     }
     ctx.c("empty start function", linux_x64,
         \\export fn _start() noreturn {
