@@ -127,6 +127,9 @@ pub const APSInt = opaque {
 
     pub const getNumWords = ZigClangAPSInt_getNumWords;
     extern fn ZigClangAPSInt_getNumWords(*const APSInt) c_uint;
+
+    pub const lessThanEqual = ZigClangAPSInt_lessThanEqual;
+    extern fn ZigClangAPSInt_lessThanEqual(*const APSInt, rhs: u64) bool;
 };
 
 pub const ASTContext = opaque {
@@ -270,12 +273,12 @@ pub const CompoundAssignOperator = opaque {
 
 pub const CompoundStmt = opaque {
     pub const body_begin = ZigClangCompoundStmt_body_begin;
-    extern fn ZigClangCompoundStmt_body_begin(*const CompoundStmt) const_body_iterator;
+    extern fn ZigClangCompoundStmt_body_begin(*const CompoundStmt) ConstBodyIterator;
 
     pub const body_end = ZigClangCompoundStmt_body_end;
-    extern fn ZigClangCompoundStmt_body_end(*const CompoundStmt) const_body_iterator;
+    extern fn ZigClangCompoundStmt_body_end(*const CompoundStmt) ConstBodyIterator;
 
-    pub const const_body_iterator = [*]const *Stmt;
+    pub const ConstBodyIterator = [*]const *Stmt;
 };
 
 pub const ConditionalOperator = opaque {};
@@ -407,7 +410,7 @@ pub const Expr = opaque {
     pub const getBeginLoc = ZigClangExpr_getBeginLoc;
     extern fn ZigClangExpr_getBeginLoc(*const Expr) SourceLocation;
 
-    pub const EvaluateAsConstantExpr = ZigClangExpr_EvaluateAsConstantExpr;
+    pub const evaluateAsConstantExpr = ZigClangExpr_EvaluateAsConstantExpr;
     extern fn ZigClangExpr_EvaluateAsConstantExpr(*const Expr, *ExprEvalResult, Expr_ConstExprUsage, *const ASTContext) bool;
 };
 
@@ -580,6 +583,16 @@ pub const MacroQualifiedType = opaque {
     extern fn ZigClangMacroQualifiedType_getModifiedType(*const MacroQualifiedType) QualType;
 };
 
+pub const TypeOfType = opaque {
+    pub const getUnderlyingType = ZigClangTypeOfType_getUnderlyingType;
+    extern fn ZigClangTypeOfType_getUnderlyingType(*const TypeOfType) QualType;
+};
+
+pub const TypeOfExprType = opaque {
+    pub const getUnderlyingExpr = ZigClangTypeOfExprType_getUnderlyingExpr;
+    extern fn ZigClangTypeOfExprType_getUnderlyingExpr(*const TypeOfExprType) *const Expr;
+};
+
 pub const MemberExpr = opaque {
     pub const getBase = ZigClangMemberExpr_getBase;
     extern fn ZigClangMemberExpr_getBase(*const MemberExpr) *const Expr;
@@ -693,8 +706,6 @@ pub const ReturnStmt = opaque {
     pub const getRetValue = ZigClangReturnStmt_getRetValue;
     extern fn ZigClangReturnStmt_getRetValue(*const ReturnStmt) ?*const Expr;
 };
-
-pub const SkipFunctionBodiesScope = opaque {};
 
 pub const SourceManager = opaque {
     pub const getSpellingLoc = ZigClangSourceManager_getSpellingLoc;
@@ -848,7 +859,10 @@ pub const UnaryOperator = opaque {
     extern fn ZigClangUnaryOperator_getBeginLoc(*const UnaryOperator) SourceLocation;
 };
 
-pub const ValueDecl = opaque {};
+pub const ValueDecl = opaque {
+    pub const getType = ZigClangValueDecl_getType;
+    extern fn ZigClangValueDecl_getType(*const ValueDecl) QualType;
+};
 
 pub const VarDecl = opaque {
     pub const getLocation = ZigClangVarDecl_getLocation;

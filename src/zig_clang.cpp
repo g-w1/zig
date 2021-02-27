@@ -2244,6 +2244,11 @@ unsigned ZigClangAPSInt_getNumWords(const ZigClangAPSInt *self) {
     return casted->getNumWords();
 }
 
+bool ZigClangAPSInt_lessThanEqual(const ZigClangAPSInt *self, uint64_t rhs) {
+    auto casted = reinterpret_cast<const llvm::APSInt *>(self);
+    return casted->ule(rhs);
+}
+
 uint64_t ZigClangAPInt_getLimitedValue(const ZigClangAPInt *self, uint64_t limit) {
     auto casted = reinterpret_cast<const llvm::APInt *>(self);
     return casted->getLimitedValue(limit);
@@ -2594,6 +2599,16 @@ struct ZigClangQualType ZigClangMacroQualifiedType_getModifiedType(const struct 
     return bitcast(casted->getModifiedType());
 }
 
+struct ZigClangQualType ZigClangTypeOfType_getUnderlyingType(const struct ZigClangTypeOfType *self) {
+    auto casted = reinterpret_cast<const clang::TypeOfType *>(self);
+    return bitcast(casted->getUnderlyingType());
+}
+
+const struct ZigClangExpr *ZigClangTypeOfExprType_getUnderlyingExpr(const struct ZigClangTypeOfExprType *self) {
+    auto casted = reinterpret_cast<const clang::TypeOfExprType *>(self);
+    return reinterpret_cast<const struct ZigClangExpr *>(casted->getUnderlyingExpr());
+}
+
 struct ZigClangQualType ZigClangElaboratedType_getNamedType(const struct ZigClangElaboratedType *self) {
     auto casted = reinterpret_cast<const clang::ElaboratedType *>(self);
     return bitcast(casted->getNamedType());
@@ -2771,6 +2786,11 @@ const struct ZigClangExpr *ZigClangUnaryOperator_getSubExpr(const struct ZigClan
 struct ZigClangSourceLocation ZigClangUnaryOperator_getBeginLoc(const struct ZigClangUnaryOperator *self) {
     auto casted = reinterpret_cast<const clang::UnaryOperator *>(self);
     return bitcast(casted->getBeginLoc());
+}
+
+struct ZigClangQualType ZigClangValueDecl_getType(const struct ZigClangValueDecl *self) {
+    auto casted = reinterpret_cast<const clang::ValueDecl *>(self);
+    return bitcast(casted->getType());
 }
 
 const struct ZigClangExpr *ZigClangWhileStmt_getCond(const struct ZigClangWhileStmt *self) {

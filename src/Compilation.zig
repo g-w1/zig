@@ -645,7 +645,7 @@ pub fn create(gpa: *Allocator, options: InitOptions) !*Compilation {
         };
 
         const darwin_options: DarwinOptions = if (build_options.have_llvm and comptime std.Target.current.isDarwin()) outer: {
-            const opts: DarwinOptions = if (use_lld and options.is_native_os and options.target.isDarwin()) inner: {
+            const opts: DarwinOptions = if (use_lld and std.builtin.os.tag == .macos and options.target.isDarwin()) inner: {
                 // TODO Revisit this targeting versions lower than macOS 11 when LLVM 12 is out.
                 // See https://github.com/ziglang/zig/issues/6996
                 const at_least_big_sur = options.target.os.getVersionRange().semver.min.major >= 11;
@@ -921,7 +921,7 @@ pub fn create(gpa: *Allocator, options: InitOptions) !*Compilation {
                         // TODO this is duped so it can be freed in Container.deinit
                         .sub_file_path = try gpa.dupe(u8, root_pkg.root_src_path),
                         .source = .{ .unloaded = {} },
-                        .contents = .{ .not_available = {} },
+                        .tree = undefined,
                         .status = .never_loaded,
                         .pkg = root_pkg,
                         .root_container = .{
@@ -1334,7 +1334,7 @@ pub fn update(self: *Compilation) !void {
         self.c_object_work_queue.writeItemAssumeCapacity(entry.key);
     }
 
-    const use_stage1 = build_options.is_stage1 and self.bin_file.options.use_llvm;
+    const use_stage1 = build_options.omit_stage2 or build_options.is_stage1 and self.bin_file.options.use_llvm;
     if (!use_stage1) {
         if (self.bin_file.options.module) |module| {
             module.compile_log_text.shrinkAndFree(module.gpa, 0);
@@ -1538,7 +1538,9 @@ pub fn getCompileLogOutput(self: *Compilation) []const u8 {
 }
 
 pub fn performAllTheWork(self: *Compilation) error{ TimerUnsupported, OutOfMemory }!void {
-    var progress: std.Progress = .{};
+    // If the terminal is dumb, we dont want to show the user all the
+    // output.
+    var progress: std.Progress = .{ .dont_print_on_dumb = true };
     var main_progress_node = try progress.start("", 0);
     defer main_progress_node.end();
     if (self.color == .off) progress.terminal = null;
@@ -1884,7 +1886,7 @@ pub fn cImport(comp: *Compilation, c_src: []const u8) !CImportResult {
         const c_headers_dir_path = try comp.zig_lib_directory.join(arena, &[_][]const u8{"include"});
         const c_headers_dir_path_z = try arena.dupeZ(u8, c_headers_dir_path);
         var clang_errors: []translate_c.ClangErrMsg = &[0]translate_c.ClangErrMsg{};
-        const tree = translate_c.translate(
+        var tree = translate_c.translate(
             comp.gpa,
             new_argv.ptr,
             new_argv.ptr + new_argv.len,
@@ -1903,7 +1905,7 @@ pub fn cImport(comp: *Compilation, c_src: []const u8) !CImportResult {
                 };
             },
         };
-        defer tree.deinit();
+        defer tree.deinit(comp.gpa);
 
         if (comp.verbose_cimport) {
             log.info("C import .d file: {s}", .{out_dep_path});
@@ -1921,9 +1923,10 @@ pub fn cImport(comp: *Compilation, c_src: []const u8) !CImportResult {
         var out_zig_file = try o_dir.createFile(cimport_zig_basename, .{});
         defer out_zig_file.close();
 
-        var bos = std.io.bufferedWriter(out_zig_file.writer());
-        _ = try std.zig.render(comp.gpa, bos.writer(), tree);
-        try bos.flush();
+        const formatted = try tree.render(comp.gpa);
+        defer comp.gpa.free(formatted);
+
+        try out_zig_file.writeAll(formatted);
 
         man.writeManifest() catch |err| {
             log.warn("failed to write cache manifest for C import: {s}", .{@errorName(err)});
@@ -1936,7 +1939,7 @@ pub fn cImport(comp: *Compilation, c_src: []const u8) !CImportResult {
         "o", &digest, cimport_zig_basename,
     });
     if (comp.verbose_cimport) {
-        log.info("C import output: {s}\n", .{out_zig_path});
+        log.info("C import output: {s}", .{out_zig_path});
     }
     return CImportResult{
         .out_zig_path = out_zig_path,
@@ -3000,7 +3003,7 @@ pub fn updateSubCompilation(sub_compilation: *Compilation) !void {
         for (errors.list) |full_err_msg| {
             switch (full_err_msg) {
                 .src => |src| {
-                    log.err("{s}:{d}:{d}: {s}\n", .{
+                    log.err("{s}:{d}:{d}: {s}", .{
                         src.src_path,
                         src.line + 1,
                         src.column + 1,

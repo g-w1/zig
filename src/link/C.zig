@@ -108,7 +108,7 @@ pub fn updateDecl(self: *C, module: *Module, decl: *Module.Decl) !void {
         .value_map = codegen.CValueMap.init(module.gpa),
         .indent_writer = undefined, // set later so we can get a pointer to object.code
     };
-    object.indent_writer = std.io.autoIndentingStream(4, object.code.writer());
+    object.indent_writer = .{ .underlying_writer = object.code.writer() };
     defer {
         object.value_map.deinit();
         object.code.deinit();

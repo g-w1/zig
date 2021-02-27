@@ -32,6 +32,7 @@ const MAX_PATH_BYTES = std.fs.MAX_PATH_BYTES;
 pub const darwin = @import("os/darwin.zig");
 pub const dragonfly = @import("os/dragonfly.zig");
 pub const freebsd = @import("os/freebsd.zig");
+pub const haiku = @import("os/haiku.zig");
 pub const netbsd = @import("os/netbsd.zig");
 pub const openbsd = @import("os/openbsd.zig");
 pub const linux = @import("os/linux.zig");
@@ -52,6 +53,7 @@ test {
     _ = uefi;
     _ = wasi;
     _ = windows;
+    _ = haiku;
 
     _ = @import("os/test.zig");
 }
@@ -66,6 +68,7 @@ else if (builtin.link_libc)
 else switch (builtin.os.tag) {
     .macos, .ios, .watchos, .tvos => darwin,
     .freebsd => freebsd,
+    .haiku => haiku,
     .linux => linux,
     .netbsd => netbsd,
     .openbsd => openbsd,
@@ -599,7 +602,7 @@ pub fn ftruncate(fd: fd_t, length: u64) TruncateError!void {
 /// On these systems, the read races with concurrent writes to the same file descriptor.
 pub fn preadv(fd: fd_t, iov: []const iovec, offset: u64) PReadError!usize {
     const have_pread_but_not_preadv = switch (std.Target.current.os.tag) {
-        .windows, .macos, .ios, .watchos, .tvos => true,
+        .windows, .macos, .ios, .watchos, .tvos, .haiku => true,
         else => false,
     };
     if (have_pread_but_not_preadv) {
@@ -932,7 +935,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
 /// If `iov.len` is larger than will fit in a `u31`, a partial write will occur.
 pub fn pwritev(fd: fd_t, iov: []const iovec_const, offset: u64) PWriteError!usize {
     const have_pwrite_but_not_pwritev = switch (std.Target.current.os.tag) {
-        .windows, .macos, .ios, .watchos, .tvos => true,
+        .windows, .macos, .ios, .watchos, .tvos, .haiku => true,
         else => false,
     };
 
@@ -1632,6 +1635,92 @@ pub fn symlinkatZ(target_path: [*:0]const u8, newdirfd: fd_t, sym_link_path: [*:
         EROFS => return error.ReadOnlyFileSystem,
         else => |err| return unexpectedErrno(err),
     }
+}
+
+pub const LinkError = UnexpectedError || error{
+    AccessDenied,
+    DiskQuota,
+    PathAlreadyExists,
+    FileSystem,
+    SymLinkLoop,
+    LinkQuotaExceeded,
+    NameTooLong,
+    FileNotFound,
+    SystemResources,
+    NoSpaceLeft,
+    ReadOnlyFileSystem,
+    NotSameFileSystem,
+};
+
+pub fn linkZ(oldpath: [*:0]const u8, newpath: [*:0]const u8, flags: i32) LinkError!void {
+    switch (errno(system.link(oldpath, newpath, flags))) {
+        0 => return,
+        EACCES => return error.AccessDenied,
+        EDQUOT => return error.DiskQuota,
+        EEXIST => return error.PathAlreadyExists,
+        EFAULT => unreachable,
+        EIO => return error.FileSystem,
+        ELOOP => return error.SymLinkLoop,
+        EMLINK => return error.LinkQuotaExceeded,
+        ENAMETOOLONG => return error.NameTooLong,
+        ENOENT => return error.FileNotFound,
+        ENOMEM => return error.SystemResources,
+        ENOSPC => return error.NoSpaceLeft,
+        EPERM => return error.AccessDenied,
+        EROFS => return error.ReadOnlyFileSystem,
+        EXDEV => return error.NotSameFileSystem,
+        EINVAL => unreachable,
+        else => |err| return unexpectedErrno(err),
+    }
+}
+
+pub fn link(oldpath: []const u8, newpath: []const u8, flags: i32) LinkError!void {
+    const old = try toPosixPath(oldpath);
+    const new = try toPosixPath(newpath);
+    return try linkZ(&old, &new, flags);
+}
+
+pub const LinkatError = LinkError || error{NotDir};
+
+pub fn linkatZ(
+    olddir: fd_t,
+    oldpath: [*:0]const u8,
+    newdir: fd_t,
+    newpath: [*:0]const u8,
+    flags: i32,
+) LinkatError!void {
+    switch (errno(system.linkat(olddir, oldpath, newdir, newpath, flags))) {
+        0 => return,
+        EACCES => return error.AccessDenied,
+        EDQUOT => return error.DiskQuota,
+        EEXIST => return error.PathAlreadyExists,
+        EFAULT => unreachable,
+        EIO => return error.FileSystem,
+        ELOOP => return error.SymLinkLoop,
+        EMLINK => return error.LinkQuotaExceeded,
+        ENAMETOOLONG => return error.NameTooLong,
+        ENOENT => return error.FileNotFound,
+        ENOMEM => return error.SystemResources,
+        ENOSPC => return error.NoSpaceLeft,
+        ENOTDIR => return error.NotDir,
+        EPERM => return error.AccessDenied,
+        EROFS => return error.ReadOnlyFileSystem,
+        EXDEV => return error.NotSameFileSystem,
+        EINVAL => unreachable,
+        else => |err| return unexpectedErrno(err),
+    }
+}
+
+pub fn linkat(
+    olddir: fd_t,
+    oldpath: []const u8,
+    newdir: fd_t,
+    newpath: []const u8,
+    flags: i32,
+) LinkatError!void {
+    const old = try toPosixPath(oldpath);
+    const new = try toPosixPath(newpath);
+    return try linkatZ(olddir, &old, newdir, &new, flags);
 }
 
 pub const UnlinkError = error{
@@ -3177,8 +3266,9 @@ pub fn connect(sock: socket_t, sock_addr: *const sockaddr, len: socklen_t) Conne
             .WSAEADDRNOTAVAIL => return error.AddressNotAvailable,
             .WSAECONNREFUSED => return error.ConnectionRefused,
             .WSAETIMEDOUT => return error.ConnectionTimedOut,
-            .WSAEHOSTUNREACH // TODO: should we return NetworkUnreachable in this case as well?
-            , .WSAENETUNREACH => return error.NetworkUnreachable,
+            .WSAEHOSTUNREACH, // TODO: should we return NetworkUnreachable in this case as well?
+            .WSAENETUNREACH,
+            => return error.NetworkUnreachable,
             .WSAEFAULT => unreachable,
             .WSAEINVAL => unreachable,
             .WSAEISCONN => unreachable,
@@ -3834,7 +3924,10 @@ pub fn sysctl(
     newlen: usize,
 ) SysCtlError!void {
     if (builtin.os.tag == .wasi) {
-        @panic("unsupported");
+        @panic("unsupported"); // TODO should be compile error, not panic
+    }
+    if (builtin.os.tag == .haiku) {
+        @panic("unsupported"); // TODO should be compile error, not panic
     }
 
     const name_len = math.cast(c_uint, name.len) catch return error.NameTooLong;
@@ -3858,7 +3951,10 @@ pub fn sysctlbynameZ(
     newlen: usize,
 ) SysCtlError!void {
     if (builtin.os.tag == .wasi) {
-        @panic("unsupported");
+        @panic("unsupported"); // TODO should be compile error, not panic
+    }
+    if (builtin.os.tag == .haiku) {
+        @panic("unsupported"); // TODO should be compile error, not panic
     }
 
     switch (errno(system.sysctlbyname(name, oldp, oldlenp, newp, newlen))) {
