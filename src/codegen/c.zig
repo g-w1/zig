@@ -1036,5 +1036,4 @@ fn IndentWriter(comptime UnderlyingWriter: type) type {
             return bytes.len;
         }
     };
->>>>>>> upstream/master
 }
